@@ -24,6 +24,9 @@ import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.hardware.camera2.CameraAccessException
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.hardware.display.DisplayManager
 import android.media.MediaScannerConnection
 import android.net.Uri
@@ -37,16 +40,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.MimeTypeMap
 import android.widget.ImageButton
-import androidx.camera.core.AspectRatio
-import androidx.camera.core.Camera
-import androidx.camera.core.CameraInfoUnavailableException
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageCapture
+import android.widget.Toast
+import androidx.camera.core.*
 import androidx.camera.core.ImageCapture.Metadata
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -71,8 +67,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
-import java.util.ArrayDeque
-import java.util.Locale
+import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.collections.ArrayList
@@ -249,11 +244,27 @@ class CameraFragment : Fragment() {
             // CameraProvider
             cameraProvider = cameraProviderFuture.get()
 
+
+            val manager = this.context?.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            try {
+                val ids = manager.cameraIdList
+                val characteristics = manager.getCameraCharacteristics(ids[0])
+                val cameraLensFacing = characteristics.get(CameraCharacteristics.LENS_FACING)
+                Log.e("SETUP CAMERA", "CameraCharacteristics.LENS_FACING (should be 0 or 1) =" + cameraLensFacing.toString());
+            } catch (e : CameraAccessException) {
+                e.printStackTrace();
+            }
+
+
             // Select lensFacing depending on the available cameras
             lensFacing = when {
                 hasBackCamera() -> CameraSelector.LENS_FACING_BACK
                 hasFrontCamera() -> CameraSelector.LENS_FACING_FRONT
-                else -> throw IllegalStateException("Back and front camera are unavailable")
+                else -> {
+                    Toast.makeText(this.context, "CAMERA ERROR: NOR FRONT FACING OR BACK FACING CAMERA", Toast.LENGTH_LONG).show()
+                    Log.e("SETUP CAMERA","CAMERA ERROR: NOR FRONT FACING OR BACK FACING CAMERA" );
+                    throw IllegalStateException("Back and front camera are unavailable")
+                }
             }
 
             // Enable or disable switching between cameras
